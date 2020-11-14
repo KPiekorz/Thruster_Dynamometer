@@ -27,7 +27,7 @@
 /* USER CODE BEGIN Includes */
 
 #include <string.h>
-#include "controlpanel.h"
+#include "thruster_control_module.h"
 
 /* USER CODE END Includes */
 
@@ -138,9 +138,6 @@ int main(void)
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
 
-//  HAL_SPI_Receive_DMA(&hspi2, sensor_data, 4);
-  HAL_GPIO_TogglePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin);
-
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -149,11 +146,6 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
-
-    xMutexSensValue = xSemaphoreCreateMutex();
-    xSemaphoreGive(xMutexSensValue);
-    xMutexBLDC = xSemaphoreCreateMutex();
-    xSemaphoreGive(xMutexBLDC);
 
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -167,24 +159,12 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
 
-    xTaskCreate(vTaskSendData, "Task-Send", 500, NULL, 3, &xTaskSendDataHandle);
-
-    xTaskCreate(vTaskTenso, "Task-Tenso", 500, NULL, 4, &xTaskTensoHandle);
-
-//    xTaskCreate(vTaskTempF4UART, "Task-Temp", 500, NULL, 3, &xTaskTempF4UARTHandle);
-
-    xTaskCreate(vTaskReceivedData, "Task-Received", 500, NULL, 3, &xTaskReceivedDataHandle);
-
-//    xTaskCreate(vTaskBLDC, "Task-BLDC", 500, NULL, 1, &xTaskBLDCHandle);
-
-//    xTaskCreate(vTaskADC, "Task-ADC", 500, NULL, 4, &xTaskADCHandle);
-
+  ThrusterControlModule_InitSystem();
 
   /* USER CODE END RTOS_THREADS */
 

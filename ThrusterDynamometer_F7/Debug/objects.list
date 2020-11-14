@@ -123,3 +123,4 @@
 "Middlewares/Third_Party/SEGGER/OS/SEGGER_SYSVIEW_FreeRTOS.o"
 "Middlewares/Third_Party/SEGGER/SEGGER/SEGGER_RTT.o"
 "Middlewares/Third_Party/SEGGER/SEGGER/SEGGER_SYSVIEW.o"
+"Thruster_Control_Module/thruster_control_module.o"

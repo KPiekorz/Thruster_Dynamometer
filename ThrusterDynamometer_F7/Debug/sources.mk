@@ -38,4 +38,5 @@ Middlewares/Third_Party/LwIP/system/OS \
 Middlewares/Third_Party/SEGGER/Config \
 Middlewares/Third_Party/SEGGER/OS \
 Middlewares/Third_Party/SEGGER/SEGGER \
+Thruster_Control_Module \
 
