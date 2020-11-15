@@ -2,7 +2,7 @@ from threading import Thread
 import serial
 from matplotlib import pyplot as plt
 
-THRUSTER_SERIAL_PORT = 'COM8'
+THRUSTER_SERIAL_PORT = 'COM14'
 
 # thruster module id
 TENSOMETER_MODULE_ID = (0x01)
@@ -40,6 +40,8 @@ def tensometer_offset():
     offset = int(input("Enter offset :> "))
     tenso_message = [TENSOMETER_MODULE_ID, 2, offset&0xFF, offset>>8]
     print(tenso_message)
+    thruster_serial.write(tenso_message)
+
 
 def tensometer_calib():
     print("\nTensometer calibration.")
@@ -59,11 +61,6 @@ def tensometer_get_measurement():
     print("\nTensometer get measurement.")
     tenso_data_size = int(input("Enter :> "))
     tenso_data.clear()
-
-    # receive serial thread 
-    stop_threads = False
-    thread_serial_receive = Thread(target = thread_receive_messages)
-    thread_serial_receive.start()
 
 def control_center(i):
     switcher={
@@ -122,8 +119,9 @@ if __name__ == "__main__":
     thread_seial_send = Thread(target = thread_dispaly_menu)
     thread_seial_send.start()
 
-    # data plot thread
-
+    # thread receive data
+    #thread_serial_receive = Thread(target = thread_receive_messages)
+    #thread_serial_receive.start()
 
     thread_seial_send.join()
     stop_threads = True

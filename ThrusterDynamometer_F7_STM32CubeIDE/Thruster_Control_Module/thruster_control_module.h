@@ -8,6 +8,8 @@
 #ifndef THRUSTER_CONTROL_MODULE_H_
 #define THRUSTER_CONTROL_MODULE_H_
 
+#include <stdint.h>
+
 #define THRUSTER_PAYLOAD_SIZE	30
 
 typedef enum

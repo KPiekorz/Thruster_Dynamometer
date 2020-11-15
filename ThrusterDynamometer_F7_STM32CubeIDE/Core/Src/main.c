@@ -90,6 +90,9 @@ void StartDefaultTask(void const * argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+#define UART_DATA_LEN	100
+uint8_t data[UART_DATA_LEN];
+
 /* USER CODE END 0 */
 
 /**
@@ -152,8 +155,8 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+//  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+//  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -570,6 +573,8 @@ static void MX_USART3_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART3_Init 0 */
+
+  __HAL_UART_ENABLE_IT(&huart3, UART_IT_IDLE); //enable idle line interrupt for RX
 
   /* USER CODE END USART3_Init 0 */
 

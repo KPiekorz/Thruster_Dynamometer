@@ -8,6 +8,8 @@
 #include "thruster_control_module.h"
 #include "tenso.h"
 #include "task_eth.h"
+#include "main.h"
+#include "string.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -49,6 +51,33 @@ QueueHandle_t tensometer_queue;
 #define TIMER_INIT_PERIOD	1
 TimerHandle_t tensometer_timer;
 
+#define THRUSTE_UART_PARAMETER_LEN	2
+#define THRUSTER_UART_DATA_LEN 100
+uint8_t thruster_uart_data[THRUSTER_UART_DATA_LEN];
+extern UART_HandleTypeDef huart3;
+
+/* interupt handlers */
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == USART3)
+	{
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+		thruster_message_t message;
+		memset(&message, 0, sizeof(thruster_message_t));
+		memcpy(&message, thruster_uart_data, thruster_uart_data[1] + THRUSTE_UART_PARAMETER_LEN);
+
+		xQueueSendFromISR(receive_command_queue, &message, &xHigherPriorityTaskWoken);
+
+		/* Now the buffer is empty we can switch context if necessary. */
+		if (xHigherPriorityTaskWoken) {
+			/* Actual macro used here is port specific. */
+			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+		}
+	}
+}
+
 /* static helper function */
 
 void thrsuterControlModule_TensometerTimerCallback(TimerHandle_t timer_handle)
@@ -70,13 +99,15 @@ static void thrsuterControlModule_TaskReceiveCommand(void *p)
 
 	while(1)
 	{
+		HAL_UART_Receive_IT(&huart3, thruster_uart_data, THRUSTER_UART_DATA_LEN);
+
 		thruster_message_t command_message;
 		xQueueReceive( receive_command_queue, &command_message, (TickType_t)portMAX_DELAY);
 
 		switch ((thruster_module_id_t) command_message.thruster_module_id)
 		{
 			case THRUSTER_TENSOMETER_ID:
-				xQueueSend( tensometer_queue, (void *)command_message, (TickType_t)QUEUE_WAIT );
+				xQueueSend( tensometer_queue, (void *)&command_message, (TickType_t)QUEUE_WAIT );
 			break;
 			default:
 			break;
@@ -94,8 +125,8 @@ static void thrsuterControlModule_TaskSendData(void *p)
 		thruster_message_t data_message;
 		xQueueReceive( sent_data_queue, &data_message, (TickType_t)portMAX_DELAY);
 
-		// send directly using ethernet connection
-		TaskEth_SendData();
+		// send directly using  uart
+
 	}
 }
 
@@ -110,28 +141,28 @@ static void thrsuterControlModule_TaskGetTensometerMeasurement(void *p)
 		thruster_message_t tensometer_message;
 		xQueueReceive( tensometer_queue, &tensometer_message, (TickType_t)portMAX_DELAY);
 
-		switch ((tensometer_control_mode_t) )
-		{
-			case TENSOMETER_START:
-				// change timer period
-				 xTimerChangePeriod(tensometer_timer, ticks, 0);
-				// start tensometer timer
-				xTimerStart(tensometer_timer, 0);
-			break;
-			case TENSOMETER_STOP:
-				// stop timer
-				xTimerStop(tensometer_timer, 0);
-			break;
-			case TENSOMETER_OFFSET:
-				HX711_Tare(10);
-			break;
-
-			case TENSOMETER_CALIBRATION:
-				HX711_Calibration(weight, HX711_Average_Value(10));
-			break;
-			default:
-			break;
-		}
+//		switch ((tensometer_control_mode_t) )
+//		{
+//			case TENSOMETER_START:
+//				// change timer period
+//				 xTimerChangePeriod(tensometer_timer, ticks, 0);
+//				// start tensometer timer
+//				xTimerStart(tensometer_timer, 0);
+//			break;
+//			case TENSOMETER_STOP:
+//				// stop timer
+//				xTimerStop(tensometer_timer, 0);
+//			break;
+//			case TENSOMETER_OFFSET:
+//				HX711_Tare(10);
+//			break;
+//
+//			case TENSOMETER_CALIBRATION:
+//				HX711_Calibration(weight, HX711_Average_Value(10));
+//			break;
+//			default:
+//			break;
+//		}
 
 	}
 }
@@ -156,19 +187,10 @@ void ThrusterControlModule_InitSystem(void)
 	for (uint8_t i = 0; i < GetTaskArrayDim(); i++)
 	{
 		xTaskCreate(thruster_task[i].task_ptr,
-					thruster_task[i].task_ptr,
+					thruster_task[i].task_name,
 					thruster_task[i].task_size,
 					NULL,
 					thruster_task[i].task_priority,
-					&xHandle );
+					&xHandle);
 	}
-}
-
-void ThrusterControlModule_ForwardReceivedCommandMessage(const uint8_t * command_data, uint16_t command_data_size)
-{
-
-	// create command message
-	thruster_message_t msg;
-
-	xQueueSend( receive_command_queue, (void *)&msg, (TickType_t)QUEUE_WAIT );
 }
