@@ -20,10 +20,11 @@
 
 typedef enum
 {
-	TENSOMETER_START,
-	TENSOMETER_STOP,
-	TENSOMETER_OFFSET,
-	TENSOMETER_CALIBRATION,
+	TENSOMETER_START = 1,
+	TENSOMETER_STOP = 2,
+	TENSOMETER_OFFSET = 3,
+	TENSOMETER_CALIBRATION = 4,
+	TENSOMETER_GET_VALUE = 5,
 
 } tensometer_control_mode_t;
 
@@ -52,9 +53,13 @@ QueueHandle_t tensometer_queue;
 TimerHandle_t tensometer_timer;
 
 #define THRUSTE_UART_PARAMETER_LEN	2
-#define THRUSTER_UART_DATA_LEN 100
+#define THRUSTER_UART_DATA_LEN 10
 uint8_t thruster_uart_data[THRUSTER_UART_DATA_LEN];
 extern UART_HandleTypeDef huart3;
+
+uint8_t tansmit_data[10];
+
+uint16_t tenso_global_value = 0;
 
 /* interupt handlers */
 
@@ -66,9 +71,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 		thruster_message_t message;
 		memset(&message, 0, sizeof(thruster_message_t));
-		memcpy(&message, thruster_uart_data, thruster_uart_data[1] + THRUSTE_UART_PARAMETER_LEN);
+
+		message.thruster_module_id = thruster_uart_data[0];
+		message.payload_size = thruster_uart_data[1];
+
+		memcpy(message.payload, &thruster_uart_data[2], thruster_uart_data[1]);
 
 		xQueueSendFromISR(receive_command_queue, &message, &xHigherPriorityTaskWoken);
+
+		HAL_UART_Receive_IT(&huart3, thruster_uart_data, THRUSTER_UART_DATA_LEN);
 
 		/* Now the buffer is empty we can switch context if necessary. */
 		if (xHigherPriorityTaskWoken) {
@@ -84,11 +95,12 @@ void thrsuterControlModule_TensometerTimerCallback(TimerHandle_t timer_handle)
 {
 	thruster_message_t tenso_data_message;
 	// get  tensometer mesurement
-	uint16_t tenso_value = HX711_Value_Gram();
+	tenso_global_value = HX711_Value_Gram();
+	tansmit_data[0] = tenso_global_value&0xFF;
+	tansmit_data[1] = tenso_global_value>>8;
 
+    HAL_UART_Transmit_IT(&huart3, tansmit_data, 2);
 	// create tenso data message
-
-	xQueueSend( sent_data_queue, (void *)&tenso_data_message, (TickType_t)QUEUE_WAIT );
 }
 
 /* control task */
@@ -96,11 +108,10 @@ void thrsuterControlModule_TensometerTimerCallback(TimerHandle_t timer_handle)
 static void thrsuterControlModule_TaskReceiveCommand(void *p)
 {
 	receive_command_queue = xQueueCreate(QUEUE_SIZE, sizeof(thruster_message_t));
+	HAL_UART_Receive_IT(&huart3, thruster_uart_data, THRUSTER_UART_DATA_LEN);
 
 	while(1)
 	{
-		HAL_UART_Receive_IT(&huart3, thruster_uart_data, THRUSTER_UART_DATA_LEN);
-
 		thruster_message_t command_message;
 		xQueueReceive( receive_command_queue, &command_message, (TickType_t)portMAX_DELAY);
 
@@ -126,7 +137,6 @@ static void thrsuterControlModule_TaskSendData(void *p)
 		xQueueReceive( sent_data_queue, &data_message, (TickType_t)portMAX_DELAY);
 
 		// send directly using  uart
-
 	}
 }
 
@@ -141,28 +151,42 @@ static void thrsuterControlModule_TaskGetTensometerMeasurement(void *p)
 		thruster_message_t tensometer_message;
 		xQueueReceive( tensometer_queue, &tensometer_message, (TickType_t)portMAX_DELAY);
 
-//		switch ((tensometer_control_mode_t) )
-//		{
-//			case TENSOMETER_START:
-//				// change timer period
-//				 xTimerChangePeriod(tensometer_timer, ticks, 0);
-//				// start tensometer timer
-//				xTimerStart(tensometer_timer, 0);
-//			break;
-//			case TENSOMETER_STOP:
-//				// stop timer
-//				xTimerStop(tensometer_timer, 0);
-//			break;
-//			case TENSOMETER_OFFSET:
-//				HX711_Tare(10);
-//			break;
-//
-//			case TENSOMETER_CALIBRATION:
-//				HX711_Calibration(weight, HX711_Average_Value(10));
-//			break;
-//			default:
-//			break;
-//		}
+		switch ((tensometer_control_mode_t) tensometer_message.payload[0])
+		{
+			case TENSOMETER_START:
+			{
+				uint16_t hz = (uint16_t)(tensometer_message.payload[2]<<8) | tensometer_message.payload[1];
+				// change timer period
+				xTimerChangePeriod(tensometer_timer, pdMS_TO_TICKS(1000 / (float)hz), 0);
+				// start tensometer timer
+				xTimerStart(tensometer_timer, 0);
+			}
+			break;
+			case TENSOMETER_STOP:
+				// stop timer
+				xTimerStop(tensometer_timer, 0);
+			break;
+			case TENSOMETER_OFFSET:
+				HX711_Tare(10);
+			break;
+			case TENSOMETER_CALIBRATION:
+			{
+				uint16_t weight = (uint16_t)(tensometer_message.payload[2]<<8) | tensometer_message.payload[1];
+
+				HX711_Calibration(weight, HX711_Average_Value(10));
+			}
+			break;
+			case TENSOMETER_GET_VALUE:
+			{
+				tenso_global_value = HX711_Value_Gram();
+				tansmit_data[0] = tenso_global_value&0xFF;
+				tansmit_data[1] = tenso_global_value>>8;
+			    HAL_UART_Transmit_IT(&huart3, tansmit_data, 2);
+			}
+			break;
+			default:
+			break;
+		}
 
 	}
 }

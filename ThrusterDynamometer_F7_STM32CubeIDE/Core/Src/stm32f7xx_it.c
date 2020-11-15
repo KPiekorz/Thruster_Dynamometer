@@ -304,12 +304,6 @@ void USART2_IRQHandler(void)
 void USART3_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_IRQn 0 */
-  if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_IDLE)) //idle line - end of data reception
-  {
-	  __HAL_UART_CLEAR_IDLEFLAG(&huart3);
-	  huart3.RxState = HAL_UART_STATE_BUSY_RX;
-	  huart3.RxXferCount = 1; // finish receive data on uart
-  }
 
   /* USER CODE END USART3_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
