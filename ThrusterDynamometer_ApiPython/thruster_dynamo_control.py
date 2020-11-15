@@ -1,4 +1,4 @@
-import multiprocessing
+from threading import Thread
 import serial
 
 THRUSTER_SERIAL_PORT = 'COM8'
@@ -47,7 +47,11 @@ def control_center(i):
 
 def thread_receive_messages():
     while True:
-        pass
+        if (stop_threads == True):
+            break
+        serial_message = thruster_serial.read()
+        if (len(serial_message) != 0):
+            data_center(int(serial_message[0]))
 
 def thread_dispaly_menu():
      while True:
@@ -57,10 +61,10 @@ def thread_dispaly_menu():
 2 - Tensometer calibration;
 3 - Tensometer set rate;
 """, end='')
-#        control_num = int(input("Enter :> "))
- #       if (control_num == 0):
-  #          break
-   #     control_center(control_num)
+        control_num = int(input("Enter :> "))
+        if (control_num == 0):
+            break
+        control_center(control_num)
 
 ############ app main start #####################
 
@@ -80,17 +84,19 @@ if __name__ == "__main__":
     )
 
     # receive serial thread 
-    thread_serial_receive = multiprocessing.Process(target = thread_receive_messages)
+    stop_threads = False
+    thread_serial_receive = Thread(target = thread_receive_messages)
     thread_serial_receive.start()
 
     # send command thread
-    thread_seial_send = multiprocessing.Process(target = thread_dispaly_menu)
+    thread_seial_send = Thread(target = thread_dispaly_menu)
     thread_seial_send.start()
 
     # data plot thread
 
 
     thread_seial_send.join()
+    stop_threads = True
     # thread_serial_receive.terminate()
 
     # close serial port and file save
